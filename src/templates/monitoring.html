@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitoring Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .alert {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="text-xl font-bold text-gray-800">System Monitoring</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        Back to Chat
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-3xl font-bold text-center mb-8">System Monitoring Dashboard</h1>
+            
+            <!-- Alerts Section -->
+            <div class="mb-6" id="alerts-container">
+                <!-- Alerts will be added here -->
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <!-- CPU Card -->
+                <div class="metric-card bg-white p-4 rounded-lg shadow" id="cpu-card">
+                    <h3 class="text-lg font-semibold mb-2">CPU Usage</h3>
+                    <div class="flex items-center justify-between">
+                        <div class="text-3xl font-bold" id="cpu-percent">0%</div>
+                        <div class="text-sm text-gray-500">
+                            <div>Frequency: <span id="cpu-freq">0 MHz</span></div>
+                            <div>Cores: <span id="cpu-cores">0</span></div>
+                        </div>
+                    </div>
+                    <canvas id="cpu-chart" class="mt-4"></canvas>
+                </div>
+
+                <!-- Memory Card -->
+                <div class="metric-card bg-white p-4 rounded-lg shadow" id="memory-card">
+                    <h3 class="text-lg font-semibold mb-2">Memory Usage</h3>
+                    <div class="flex items-center justify-between">
+                        <div class="text-3xl font-bold" id="memory-percent">0%</div>
+                        <div class="text-sm text-gray-500">
+                            <div>Used: <span id="memory-used">0 GB</span></div>
+                            <div>Total: <span id="memory-total">0 GB</span></div>
+                        </div>
+                    </div>
+                    <canvas id="memory-chart" class="mt-4"></canvas>
+                </div>
+
+                <!-- Disk Card -->
+                <div class="metric-card bg-white p-4 rounded-lg shadow" id="disk-card">
+                    <h3 class="text-lg font-semibold mb-2">Disk Usage</h3>
+                    <div class="flex items-center justify-between">
+                        <div class="text-3xl font-bold" id="disk-percent">0%</div>
+                        <div class="text-sm text-gray-500">
+                            <div>Used: <span id="disk-used">0 GB</span></div>
+                            <div>Total: <span id="disk-total">0 GB</span></div>
+                        </div>
+                    </div>
+                    <canvas id="disk-chart" class="mt-4"></canvas>
+                </div>
+
+                <!-- Network Card -->
+                <div class="metric-card bg-white p-4 rounded-lg shadow" id="network-card">
+                    <h3 class="text-lg font-semibold mb-2">Network</h3>
+                    <div class="text-sm text-gray-500">
+                        <div>Sent: <span id="network-sent">0 MB</span></div>
+                        <div>Received: <span id="network-recv">0 MB</span></div>
+                    </div>
+                    <canvas id="network-chart" class="mt-4"></canvas>
+                </div>
+            </div>
+
+            <!-- Process List -->
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-4">Running Processes</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-2">PID</th>
+                                <th class="px-4 py-2">Name</th>
+                                <th class="px-4 py-2">CPU %</th>
+                                <th class="px-4 py-2">Memory %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="process-list">
+                            <!-- Process rows will be added here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "b1137627d5ef20c6cb611f4f0ba8ff57b8dd69f593b5e55b8bdbe3d7e5c8e098";
+        const API_URL = "http://localhost:8000";
+
+        // Initialize charts
+        const charts = {
+            cpu: new Chart(document.getElementById('cpu-chart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'CPU Usage %',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            }),
+            memory: new Chart(document.getElementById('memory-chart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Memory Usage %',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            }),
+            disk: new Chart(document.getElementById('disk-chart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Disk Usage %',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            }),
+            network: new Chart(document.getElementById('network-chart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Bytes Sent',
+                            data: [],
+                            borderColor: 'rgb(255, 159, 64)',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Bytes Received',
+                            data: [],
+                            borderColor: 'rgb(153, 102, 255)',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true
+                }
+            })
+        };
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function updateMetrics(data) {
+            // Update CPU
+            document.getElementById('cpu-percent').textContent = `${data.cpu.percent}%`;
+            document.getElementById('cpu-freq').textContent = `${data.cpu.frequency.current} MHz`;
+            document.getElementById('cpu-cores').textContent = data.cpu.cores;
+
+            // Update Memory
+            document.getElementById('memory-percent').textContent = `${data.memory.percent}%`;
+            document.getElementById('memory-used').textContent = formatBytes(data.memory.used);
+            document.getElementById('memory-total').textContent = formatBytes(data.memory.total);
+
+            // Update Disk
+            document.getElementById('disk-percent').textContent = `${data.disk.percent}%`;
+            document.getElementById('disk-used').textContent = formatBytes(data.disk.used);
+            document.getElementById('disk-total').textContent = formatBytes(data.disk.total);
+
+            // Update Network
+            document.getElementById('network-sent').textContent = formatBytes(data.network.bytes_sent);
+            document.getElementById('network-recv').textContent = formatBytes(data.network.bytes_recv);
+
+            // Update Process List
+            const processList = document.getElementById('process-list');
+            processList.innerHTML = '';
+            data.processes.slice(0, 10).forEach(proc => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-2">${proc.pid}</td>
+                    <td class="px-4 py-2">${proc.name}</td>
+                    <td class="px-4 py-2">${proc.cpu_percent.toFixed(1)}%</td>
+                    <td class="px-4 py-2">${proc.memory_percent.toFixed(1)}%</td>
+                `;
+                processList.appendChild(row);
+            });
+        }
+
+        function updateCharts(history) {
+            // Update CPU chart
+            charts.cpu.data.labels = history.cpu.map(h => new Date(h.timestamp).toLocaleTimeString());
+            charts.cpu.data.datasets[0].data = history.cpu.map(h => h.percent);
+            charts.cpu.update();
+
+            // Update Memory chart
+            charts.memory.data.labels = history.memory.map(h => new Date(h.timestamp).toLocaleTimeString());
+            charts.memory.data.datasets[0].data = history.memory.map(h => h.used_percent);
+            charts.memory.update();
+
+            // Update Disk chart
+            charts.disk.data.labels = history.disk.map(h => new Date(h.timestamp).toLocaleTimeString());
+            charts.disk.data.datasets[0].data = history.disk.map(h => h.used_percent);
+            charts.disk.update();
+
+            // Update Network chart
+            charts.network.data.labels = history.network.map(h => new Date(h.timestamp).toLocaleTimeString());
+            charts.network.data.datasets[0].data = history.network.map(h => h.bytes_sent);
+            charts.network.data.datasets[1].data = history.network.map(h => h.bytes_recv);
+            charts.network.update();
+        }
+
+        function updateAlerts(alerts) {
+            const container = document.getElementById('alerts-container');
+            container.innerHTML = '';
+            
+            alerts.forEach(alert => {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert bg-${alert.level === 'warning' ? 'yellow' : 'red'}-100 border-l-4 border-${alert.level === 'warning' ? 'yellow' : 'red'}-500 text-${alert.level === 'warning' ? 'yellow' : 'red'}-700 p-4 mb-4`;
+                alertDiv.textContent = alert.message;
+                container.appendChild(alertDiv);
+            });
+        }
+
+        async function fetchMetrics() {
+            try {
+                const [metricsResponse, historyResponse, alertsResponse] = await Promise.all([
+                    fetch(`${API_URL}/monitoring/metrics`, {
+                        headers: { 'X-API-Key': API_KEY }
+                    }),
+                    fetch(`${API_URL}/monitoring/history`, {
+                        headers: { 'X-API-Key': API_KEY }
+                    }),
+                    fetch(`${API_URL}/monitoring/alerts`, {
+                        headers: { 'X-API-Key': API_KEY }
+                    })
+                ]);
+
+                const metrics = await metricsResponse.json();
+                const history = await historyResponse.json();
+                const alerts = await alertsResponse.json();
+
+                updateMetrics(metrics);
+                updateCharts(history);
+                updateAlerts(alerts.alerts);
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+            }
+        }
+
+        // Update metrics every 2 seconds
+        setInterval(fetchMetrics, 2000);
+        // Initial fetch
+        fetchMetrics();
+    </script>
+</body>
+</html> 

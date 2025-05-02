@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant MCP</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: calc(100vh - 200px);
+        }
+        .message {
+            max-width: 80%;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .user-message {
+            background-color: #e2e8f0;
+            margin-left: auto;
+        }
+        .ai-message {
+            background-color: #4299e1;
+            color: white;
+            margin-right: auto;
+        }
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="text-xl font-bold text-gray-800">AI Assistant MCP</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <a href="/monitoring" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        System Monitoring
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-3xl font-bold text-center mb-8">AI Assistant MCP</h1>
+            
+            <!-- System Controls -->
+            <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">File Operations</h3>
+                    <button onclick="listFiles()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">List Files</button>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">Process Management</h3>
+                    <button onclick="listProcesses()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">List Processes</button>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">System Status</h3>
+                    <button onclick="checkHealth()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Check Health</button>
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="border rounded-lg p-4 bg-gray-50">
+                <div class="chat-header">
+                    <h2 class="text-xl font-semibold">Chat</h2>
+                    <div class="chat-actions">
+                        <button onclick="newChat()" 
+                                class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                            New Chat
+                        </button>
+                        <button onclick="clearChat()" 
+                                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                            Clear Chat
+                        </button>
+                    </div>
+                </div>
+                <div class="chat-container overflow-y-auto mb-4" id="chat-messages">
+                    <!-- Messages will be added here -->
+                </div>
+
+                <!-- Input Form -->
+                <div class="flex gap-2">
+                    <input type="text" id="user-input" 
+                           class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Type your message...">
+                    <button onclick="sendMessage()" 
+                            class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "b1137627d5ef20c6cb611f4f0ba8ff57b8dd69f593b5e55b8bdbe3d7e5c8e098";
+        const API_URL = "http://localhost:8000";
+        let chatContext = {};
+
+        function addMessage(content, isUser = false) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            messageDiv.textContent = content;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addMessage(message, true);
+            input.value = '';
+
+            try {
+                const response = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_KEY
+                    },
+                    body: JSON.stringify({ 
+                        prompt: message,
+                        context: chatContext
+                    })
+                });
+
+                const data = await response.json();
+                addMessage(data.response);
+                // Update chat context if provided in response
+                if (data.context) {
+                    chatContext = data.context;
+                }
+            } catch (error) {
+                addMessage('Error: Could not connect to the AI assistant.', false);
+                console.error('Error:', error);
+            }
+        }
+
+        function clearChat() {
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML = '';
+            chatContext = {};
+            addMessage('Chat cleared. Starting fresh conversation.', false);
+        }
+
+        function newChat() {
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML = '';
+            chatContext = {};
+            addMessage('Started a new chat session. How can I help you?', false);
+        }
+
+        async function listFiles() {
+            try {
+                const response = await fetch(`${API_URL}/system/files/list/Documents`, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
+                const data = await response.json();
+                addMessage(`Files in Documents: ${JSON.stringify(data, null, 2)}`, false);
+            } catch (error) {
+                addMessage('Error: Could not list files.', false);
+                console.error('Error:', error);
+            }
+        }
+
+        async function listProcesses() {
+            try {
+                const response = await fetch(`${API_URL}/system/processes`, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
+                const data = await response.json();
+                addMessage(`Running Processes: ${JSON.stringify(data, null, 2)}`, false);
+            } catch (error) {
+                addMessage('Error: Could not list processes.', false);
+                console.error('Error:', error);
+            }
+        }
+
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                addMessage(`System Status: ${JSON.stringify(data, null, 2)}`, false);
+            } catch (error) {
+                addMessage('Error: Could not check system health.', false);
+                console.error('Error:', error);
+            }
+        }
+
+        // Handle Enter key in input
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Initialize with welcome message
+        window.onload = function() {
+            addMessage('Hello! I am your AI assistant. How can I help you today?', false);
+        };
+    </script>
+</body>
+</html> 
