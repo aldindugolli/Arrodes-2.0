@@ -33,8 +33,8 @@ A powerful AI assistant with system monitoring and control capabilities, built w
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/book-writer.git
-cd book-writer
+git clone https://github.com/aldindugolli/Arrodes-2.0.git
+cd Arrodes-2.0
 ```
 
 2. Create and activate a virtual environment:
